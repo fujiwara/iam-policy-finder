@@ -21,7 +21,8 @@ Flags:
 
 ### Example
 
-iam-policy-finder finds policies that matches the given condition. The condition is written in CEL expression.
+iam-policy-finder finds policies that matches the given condition. The condition is written in [CEL](https://cel.dev/) expression.
+
 The first argument is a CEL expression string or file name.
 
 - `name` is the name of the policy.
