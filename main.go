@@ -87,7 +87,7 @@ func init() {
 	ops := slog.HandlerOptions{
 		Level: logLevel,
 	}
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &ops))
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &ops))
 	slog.SetDefault(logger)
 }
 
