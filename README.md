@@ -41,6 +41,10 @@ $ iam-policy-finder expr.cel
 {"time":"2024-07-14T01:14:22.219906882+09:00","level":"INFO","msg":"found","policy":"AWSSupportServiceRolePolicy","versions":["v36","v35","v34","v33","v32","v31","v30","v29","v28","v27","v26","v25","v24","v23","v22","v21","v20","v19","v18","v17","v16","v15","v14","v13","v12","v11","v10","v9","v8","v7","v6","v5","v4","v3"],"attached":1}
 ```
 
+### LIMITATIONS
+
+The policy document is not parsed and not normalized. The search is done by string matching.
+
 ## LICENSE
 
 MIT
