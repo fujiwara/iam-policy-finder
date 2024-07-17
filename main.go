@@ -17,12 +17,16 @@ import (
 )
 
 type CLI struct {
-	Dump   bool     `name:"dump" help:"dump found policy document"`
-	Filter []string `name:"filter" enum:"User,Group,Role,LocalManagedPolicy,AWSManagedPolicy" short:"f" help:"filter policy document(User, Group, Role, LocalManagedPolicy, AWSManagedPolicy)"`
-	Expr   string   `arg:"" help:"CEL expression string or file name" required:"true"`
-	Debug  bool     `name:"debug" help:"debug logging"`
+	Dump                bool     `name:"dump" help:"dump found policy document"`
+	Filter              []string `name:"filter" enum:"User,Group,Role,LocalManagedPolicy,AWSManagedPolicy" short:"f" help:"filter policy document(User, Group, Role, LocalManagedPolicy, AWSManagedPolicy)"`
+	Expr                string   `arg:"" help:"CEL expression string or file name" required:"true"`
+	Debug               bool     `name:"debug" help:"debug logging"`
+	SkipEvaluationError bool     `name:"skip-evaluation-error" help:"skip evaluation error"`
+	Progress            bool     `name:"progress" help:"show progress dots" negatable:"" default:"false"`
 
-	prg cel.Program
+	prg     cel.Program
+	scanned int
+	found   int
 }
 
 func (c *CLI) prepare() error {
@@ -40,43 +44,45 @@ func (c *CLI) prepare() error {
 		return err
 	}
 
-	env, err := cel.NewEnv(
-		cel.Variable("name", cel.StringType),
-		cel.Variable("document", cel.StringType),
-	)
-	if err != nil {
-		return err
-	}
-	ast, issues := env.Compile(c.Expr)
-	if issues != nil && issues.Err() != nil {
-		return fmt.Errorf("failed to CEL compile error: %w", issues.Err())
-	}
-	c.prg, err = env.Program(ast)
+	prg, err := parseCel(c.Expr)
 	if err != nil {
 		return fmt.Errorf("failed to CEL program error: %w", err)
 	}
+	c.prg = prg
 	return nil
 }
 
 func (c *CLI) detect(d *PolicyDetail) (bool, error) {
-	out, _, err := c.prg.Eval(map[string]any{
-		"name":     d.Name,
-		"document": d.Document,
-	})
+	c.showProgress()
+	out, _, err := c.prg.Eval(d.Data())
 	if err != nil {
-		return false, err
+		if c.SkipEvaluationError {
+			slog.Warn("failed to CEL evaluation error", "name", d.Name, "error", err)
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to CEL evaluation error: %w, name: %s", err, d.Name)
 	}
 	switch out.Value().(type) {
 	case bool:
-		return out.Value().(bool), nil
+		b := out.Value().(bool)
+		if b {
+			c.found++
+		}
+		return b, nil
 	default:
-		return false, fmt.Errorf("unexpected CEL evaluation result: %v", out.Value())
+		if c.SkipEvaluationError {
+			slog.Warn("unexpected CEL evaluation result", "value", out.Value(), "name", d.Name)
+			return false, nil
+		}
+		return false, fmt.Errorf("unexpected CEL evaluation result: %v, name: %s", out.Value(), d.Name)
 	}
 }
 
 func (c *CLI) dump(d *PolicyDetail) {
 	if c.Dump {
 		fmt.Println(d.Document)
+		// b, _ := json.MarshalIndent(d.Policy, "", "  ")
+		// fmt.Println(string(b))
 	}
 }
 
@@ -95,6 +101,10 @@ func Run(ctx context.Context) error {
 	var c CLI
 	kong.Parse(&c)
 
+	defer func() {
+		slog.Info("finished", "found", c.found, "scanned", c.scanned)
+	}()
+
 	if c.Debug {
 		logLevel.Set(slog.LevelDebug)
 	}
@@ -104,7 +114,6 @@ func Run(ctx context.Context) error {
 	filter := lo.Map(c.Filter, func(s string, _ int) types.EntityType {
 		return types.EntityType(s)
 	})
-	slog.Debug("filter", "filter", filter)
 
 	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
@@ -112,7 +121,7 @@ func Run(ctx context.Context) error {
 	}
 	svc := iam.NewFromConfig(cfg)
 	var marker *string
-	slog.Debug("starting scan")
+	slog.Info("starting scan", "expr", c.Expr, "filter", filter)
 	for {
 		out, err := svc.GetAccountAuthorizationDetails(ctx, &iam.GetAccountAuthorizationDetailsInput{
 			Marker:   marker,
@@ -192,15 +201,37 @@ func Run(ctx context.Context) error {
 	return nil
 }
 
+func (c *CLI) showProgress() {
+	c.scanned++
+	if c.Progress {
+		fmt.Fprint(os.Stderr, ".")
+	}
+}
+
 func NewPolicyDetail(name, document string) *PolicyDetail {
 	doc, _ := url.QueryUnescape(document)
+	policy, err := ParsePolicy([]byte(doc))
+	if err != nil {
+		slog.Warn("failed to parse policy document", "name", name, "error", err)
+	}
 	return &PolicyDetail{
 		Name:     name,
 		Document: doc,
+		Policy:   policy,
 	}
 }
 
 type PolicyDetail struct {
 	Name     string
 	Document string
+	Policy   Policy
+}
+
+func (d *PolicyDetail) Data() any {
+	return map[string]any{
+		"Name":      d.Name,
+		"Document":  d.Document,
+		"Statement": d.Policy.Statement,
+		"Version":   d.Policy.Version,
+	}
 }

@@ -1,6 +1,6 @@
 .PHONY: clean test
 
-iam-policy-finder: go.* *.go
+iam-policy-finder: go.* *.go cmd/iam-policy-finder/*.go
 	go build -o $@ cmd/iam-policy-finder/main.go
 
 clean:

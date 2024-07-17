@@ -8,6 +8,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.27.26
 	github.com/aws/aws-sdk-go-v2/service/iam v1.34.3
 	github.com/google/cel-go v0.20.1
+	github.com/google/go-cmp v0.6.0
 	github.com/samber/lo v1.45.0
 )
 
