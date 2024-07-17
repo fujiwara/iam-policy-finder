@@ -132,6 +132,10 @@ Skips the evaluation error. If the evaluation error occurs, the policy is not ma
 
 Enables debug logging.
 
+#### `--[no-]progress`
+
+Shows progress dots to stderr. The default is disabled.
+
 ## LICENSE
 
 MIT
