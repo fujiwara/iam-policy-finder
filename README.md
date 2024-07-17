@@ -30,13 +30,13 @@ The first argument is a CEL expression string or file name.
 - `Name` is the name of the policy.
 - `Document` is the policy document JSON string.
 - `Version` is the policy version. (e.g. `"2012-10-17"`)
-- `Statement` is the normalized statement object.
-  - `Statement.Sid` is the statement ID. (e.g. `"Sid-1"`)
-  - `Statement.Effect` is the effect of the statement. (e.g. `"Allow"`, `"Deny"`)
-  - `Statement.Action` is the list of actions in the statement. (e.g. `["s3:GetObject", "s3:PutObject"]`) If the action is `"s3:*"`, it is normalized to `["s3:*"]`.
-  - `Statement.Resource` is the list of resources in the statement. (e.g. `["arn:aws:s3:::my-bucket/*"]`, Not a string) If the resource is `"*"`, it is normalized to `["*"]`.
-  - `Statement.Condition` is the condition object in the statement. (e.g. `{"StringEquals": {"s3:x-amz-acl": "public-read"}}`)
-  - `Statement.Principal` is the principal object or a string in the statement. (e.g. `{"AWS": "arn:aws:iam::123456789012:root"}` or `"*"`)
+- `Statement` is the list of normalized statements.
+  - `Statement[].Sid` is the statement ID. (e.g. `"Sid-1"`)
+  - `Statement[].Effect` is the effect of the statement. (e.g. `"Allow"`, `"Deny"`)
+  - `Statement[].Action` is the list of actions in the statement. (e.g. `["s3:GetObject", "s3:PutObject"]`) If the action is `"s3:*"`, it is normalized to `["s3:*"]`.
+  - `Statement[].Resource` is the list of resources in the statement. (e.g. `["arn:aws:s3:::my-bucket/*"]`, Not a string) If the resource is `"*"`, it is normalized to `["*"]`.
+  - `Statement[].Condition` is the condition object in the statement. (e.g. `{"StringEquals": {"s3:x-amz-acl": "public-read"}}`)
+  - `Statement[].Principal` is the principal object or a string in the statement. (e.g. `{"AWS": "arn:aws:iam::123456789012:root"}` or `"*"`)
 
 #### Example of Name is "AmazonEC2FullAccess".
 
@@ -57,10 +57,20 @@ $ iam-policy-finder expr.cel
 time=2024-07-14T01:25:33.029+09:00 level=INFO msg=found policy=SecretsManagerReadWrite versions="[v5 v4 v3 v2 v1]" attached=2
 ```
 
-#### Example of Statement.Action contains `"s3:*"` and Statement.Effect is `"Allow"`.
+#### Example of finding by normalized policy.
+
+`Statement` is a list of normalized statement objects. So, you can use `Statement.exists` to find any statement that matches the condition.
+
+Statement.Action contains `"s3:*"` and Statement.Effect is `"Allow"`.
 
 ```cel
 Statement.exists(s, s.Action.exists(a, a == "s3:*") && s.Effect == "Allow")
+```
+
+Principal contains AWS account `"123456789012"`.
+
+```cel
+Statement.exists(s, s.Principal != "*" && s.Principal["AWS"].exists(p, p == "123456789012"))
 ```
 
 #### Example of Normalized Policy JSON
