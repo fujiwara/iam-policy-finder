@@ -23,6 +23,7 @@ type CLI struct {
 	Debug               bool     `name:"debug" help:"debug logging"`
 	SkipEvaluationError bool     `name:"skip-evaluation-error" help:"skip evaluation error"`
 	Progress            bool     `name:"progress" help:"show progress dots" negatable:"" default:"false"`
+	ActionToLowerCase   bool     `name:"lc" help:"convert action to lower case" default:"false"`
 
 	prg     cel.Program
 	scanned int
@@ -121,7 +122,7 @@ func Run(ctx context.Context) error {
 	}
 	svc := iam.NewFromConfig(cfg)
 	var marker *string
-	slog.Info("starting scan", "expr", c.Expr, "filter", filter)
+	slog.Info("starting scan", "expr", c.Expr, "filter", filter, "lc", c.ActionToLowerCase)
 	for {
 		out, err := svc.GetAccountAuthorizationDetails(ctx, &iam.GetAccountAuthorizationDetailsInput{
 			Marker:   marker,
@@ -134,7 +135,7 @@ func Run(ctx context.Context) error {
 		for _, role := range out.RoleDetailList {
 			for _, v := range role.RolePolicyList {
 				slog.Debug("scanning", "role", *role.RoleName, "policy", *v.PolicyName)
-				d := NewPolicyDetail(*v.PolicyName, *v.PolicyDocument)
+				d := c.NewPolicyDetail(*v.PolicyName, *v.PolicyDocument)
 				found, err := c.detect(d)
 				if err != nil {
 					return err
@@ -148,7 +149,7 @@ func Run(ctx context.Context) error {
 		for _, user := range out.UserDetailList {
 			for _, v := range user.UserPolicyList {
 				slog.Debug("scanning", "user", *user.UserName, "policy", *v.PolicyName)
-				d := NewPolicyDetail(*v.PolicyName, *v.PolicyDocument)
+				d := c.NewPolicyDetail(*v.PolicyName, *v.PolicyDocument)
 				found, err := c.detect(d)
 				if err != nil {
 					return err
@@ -162,7 +163,7 @@ func Run(ctx context.Context) error {
 		for _, group := range out.GroupDetailList {
 			for _, v := range group.GroupPolicyList {
 				slog.Debug("scanning", "group", *group.GroupName, "policy", *v.PolicyName)
-				d := NewPolicyDetail(*v.PolicyName, *v.PolicyDocument)
+				d := c.NewPolicyDetail(*v.PolicyName, *v.PolicyDocument)
 				found, err := c.detect(d)
 				if err != nil {
 					return err
@@ -178,7 +179,7 @@ func Run(ctx context.Context) error {
 			var forDump *PolicyDetail
 			for _, v := range policy.PolicyVersionList {
 				slog.Debug("scanning", "policy", *policy.PolicyName, "version", *v.VersionId)
-				d := NewPolicyDetail(*policy.PolicyName, *v.Document)
+				d := c.NewPolicyDetail(*policy.PolicyName, *v.Document)
 				found, err := c.detect(d)
 				if err != nil {
 					return err
@@ -208,9 +209,11 @@ func (c *CLI) showProgress() {
 	}
 }
 
-func NewPolicyDetail(name, document string) *PolicyDetail {
+func (c *CLI) NewPolicyDetail(name, document string) *PolicyDetail {
 	doc, _ := url.QueryUnescape(document)
-	policy, err := ParsePolicy([]byte(doc))
+	policy, err := ParsePolicy([]byte(doc), &ParsePolicyOptions{
+		ActionToLowerCase: c.ActionToLowerCase,
+	})
 	if err != nil {
 		slog.Warn("failed to parse policy document", "name", name, "error", err)
 	}

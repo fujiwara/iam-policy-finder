@@ -2,7 +2,6 @@ package finder_test
 
 import (
 	"encoding/json"
-	"log"
 	"testing"
 
 	finder "github.com/fujiwara/iam-policy-finder"
@@ -33,48 +32,74 @@ var fuzzyPolicyJSON = `{
 	}]
 }`
 
-var normalizedPolicy = finder.Policy{
-	Version: "2012-10-17",
-	Statement: []finder.Statement{
-		{
-			"Sid":          "1",
-			"Effect":       "Allow",
-			"Action":       []string{"s3:ListBucket"},
-			"Resource":     []string{"arn:aws:s3:::example_bucket"},
-			"Principal":    "*",
-			"Condition":    map[string]map[string][]string{},
-			"NotAction":    []string{},
-			"NotPrincipal": map[string][]string{},
-		},
-		{
-			"Sid":      "2",
-			"Effect":   "Deny",
-			"Action":   []string{"s3:DeleteObject", "s3:PutObject"},
-			"Resource": []string{"arn:aws:s3:::example_bucket/*"},
-			"Principal": map[string][]string{
-				"AWS": {"123456789012"},
+func newNormalizedPolicy(fn func([]string) []string) finder.Policy {
+	return finder.Policy{
+		Version: "2012-10-17",
+		Statement: []finder.Statement{
+			{
+				"Sid":          "1",
+				"Effect":       "Allow",
+				"Action":       fn([]string{"s3:ListBucket"}),
+				"Resource":     []string{"arn:aws:s3:::example_bucket"},
+				"Principal":    "*",
+				"Condition":    map[string]map[string][]string{},
+				"NotAction":    []string{},
+				"NotPrincipal": map[string][]string{},
 			},
-			"Condition": map[string]map[string][]string{
-				"ArnNotEquals": {
-					"aws:PrincipalArn": {"arn:aws:iam::444455556666:user/user-name"},
+			{
+				"Sid":      "2",
+				"Effect":   "Deny",
+				"Action":   fn([]string{"s3:DeleteObject", "s3:PutObject"}),
+				"Resource": []string{"arn:aws:s3:::example_bucket/*"},
+				"Principal": map[string][]string{
+					"AWS": {"123456789012"},
 				},
+				"Condition": map[string]map[string][]string{
+					"ArnNotEquals": {
+						"aws:PrincipalArn": {"arn:aws:iam::444455556666:user/user-name"},
+					},
+				},
+				"NotAction":    []string{},
+				"NotPrincipal": map[string][]string{},
 			},
-			"NotAction":    []string{},
-			"NotPrincipal": map[string][]string{},
 		},
+	}
+}
+
+var normalizedPolicy = newNormalizedPolicy(func(s []string) []string { return s })
+var normalizedPolicyLC = newNormalizedPolicy(finder.ToLower)
+
+var testCasesParsePolicy = []struct {
+	name        string
+	opt         *finder.ParsePolicyOptions
+	compareWith finder.Policy
+}{
+	{
+		name:        "default",
+		opt:         &finder.ParsePolicyOptions{},
+		compareWith: normalizedPolicy,
+	},
+	{
+		name:        "ActionToLowerCase",
+		opt:         &finder.ParsePolicyOptions{ActionToLowerCase: true},
+		compareWith: normalizedPolicyLC,
 	},
 }
 
 func TestParsePolicy(t *testing.T) {
-	policy, err := finder.ParsePolicy([]byte(fuzzyPolicyJSON))
-	if err != nil {
-		log.Fatal(err)
+	for _, tt := range testCasesParsePolicy {
+		t.Run(tt.name, func(t *testing.T) {
+			policy, err := finder.ParsePolicy([]byte(fuzzyPolicyJSON), tt.opt)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if diff := cmp.Diff(policy, tt.compareWith); diff != "" {
+				t.Errorf("policy mismatch (-want +got):\n%s", diff)
+			}
+			b, _ := json.MarshalIndent(policy, "", "  ")
+			t.Log(string(b))
+		})
 	}
-	if diff := cmp.Diff(normalizedPolicy, policy); diff != "" {
-		t.Errorf("policy mismatch (-want +got):\n%s", diff)
-	}
-	b, _ := json.MarshalIndent(policy, "", "  ")
-	t.Log(string(b))
 }
 
 var celExpressions = []struct {

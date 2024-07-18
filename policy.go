@@ -3,6 +3,7 @@ package finder
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 type Policy struct {
@@ -99,7 +100,7 @@ func normalizeCondition(raw map[string]map[string]json.RawMessage) (map[string]m
 }
 
 // normalizeStatement normalizes a FuzzyStatement to a Statement
-func normalizeStatement(f fuzzyStatement) (Statement, error) {
+func normalizeStatement(f fuzzyStatement, opt *ParsePolicyOptions) (Statement, error) {
 	action, err := normalizeRawMessage(f.Action)
 	if err != nil {
 		return Statement{}, err
@@ -108,6 +109,11 @@ func normalizeStatement(f fuzzyStatement) (Statement, error) {
 	if err != nil {
 		return Statement{}, err
 	}
+	if opt.ActionToLowerCase {
+		action = toLower(action)
+		notAction = toLower(notAction)
+	}
+
 	resource, err := normalizeRawMessage(f.Resource)
 	if err != nil {
 		return Statement{}, err
@@ -137,10 +143,10 @@ func normalizeStatement(f fuzzyStatement) (Statement, error) {
 }
 
 // normalizePolicy normalizes a policy with fuzzy statements
-func normalizePolicy(fPolicy fuzzyPolicy) (Policy, error) {
+func normalizePolicy(fPolicy fuzzyPolicy, opt *ParsePolicyOptions) (Policy, error) {
 	var statements []Statement
 	for _, fStatement := range fPolicy.Statement {
-		normalized, err := normalizeStatement(fStatement)
+		normalized, err := normalizeStatement(fStatement, opt)
 		if err != nil {
 			return Policy{}, err
 		}
@@ -152,10 +158,22 @@ func normalizePolicy(fPolicy fuzzyPolicy) (Policy, error) {
 	}, nil
 }
 
-func ParsePolicy(src []byte) (Policy, error) {
+func toLower(s []string) []string {
+	r := make([]string, len(s))
+	for i, v := range s {
+		r[i] = strings.ToLower(v)
+	}
+	return r
+}
+
+type ParsePolicyOptions struct {
+	ActionToLowerCase bool
+}
+
+func ParsePolicy(src []byte, opt *ParsePolicyOptions) (Policy, error) {
 	var fPolicy fuzzyPolicy
 	if err := json.Unmarshal(src, &fPolicy); err != nil {
 		return Policy{}, err
 	}
-	return normalizePolicy(fPolicy)
+	return normalizePolicy(fPolicy, opt)
 }
