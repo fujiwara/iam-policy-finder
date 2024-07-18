@@ -21,6 +21,7 @@ Flags:
       --debug                    debug logging
       --skip-evaluation-error    skip evaluation error
       --[no-]progress            show progress dots
+      --lc                       convert action to lower case
 ```
 
 ### Examples
@@ -73,6 +74,20 @@ Statement.exists(s, s.Action.exists(a, a == "s3:*") && s.Effect == "Allow")
 
 ```cel
 Statement.exists(s, s.Principal != "*" && s.Principal["AWS"].exists(p, p == "123456789012"))
+```
+
+#### Note: `Action` elements are case insensitive.
+
+AWS IAM policy action is case insensitive. See [https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_action.html](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_action.html).
+
+But CEL comparison is case sensitive.
+
+If you want to match the action case-insensitively, use the `--lc` option. `--lc` converts the `Statement[].Action` and `Statement[].NotAction` to lowercase when normalizing the policy document. (`Document` is not normalized to lowercase.)
+
+For example, find policies that have the action `"s3:GetObject"` or `"s3:getobject"` or `"s3:getObject"`, and so on.
+
+```console
+$ iam-policy-finder --lc 'Statement.exists(s, s.Action.exists(a, a == "s3:getobject"))'
 ```
 
 #### Normalized policy JSON
@@ -160,6 +175,10 @@ Enables debug logging.
 #### `--[no-]progress`
 
 Shows progress dots to stderr. The default is disabled.
+
+#### `--lc`
+
+Converts the `Statement[].Action` and `Statement[].NotAction` to lowercase when normalizing the policy document.
 
 ## LICENSE
 
