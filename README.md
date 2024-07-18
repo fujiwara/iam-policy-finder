@@ -30,15 +30,11 @@ The first argument is a CEL expression string or file name.
 - `Name` is the name of the policy.
 - `Document` is the policy document JSON string.
 - `Version` is the policy version. (e.g. `"2012-10-17"`)
-- `Statement` is the list of normalized statements.
-  - `Statement[].Sid` is the statement ID. (e.g. `"Sid-1"`)
-  - `Statement[].Effect` is the effect of the statement. (e.g. `"Allow"`, `"Deny"`)
-  - `Statement[].Action` is the list of actions in the statement. (e.g. `["s3:GetObject", "s3:PutObject"]`) If the action is `"s3:*"`, it is normalized to `["s3:*"]`.
-  - `Statement[].Resource` is the list of resources in the statement. (e.g. `["arn:aws:s3:::my-bucket/*"]`, Not a string) If the resource is `"*"`, it is normalized to `["*"]`.
-  - `Statement[].Condition` is the condition object in the statement. (e.g. `{"StringEquals": {"s3:x-amz-acl": "public-read"}}`)
-  - `Statement[].Principal` is the principal object or a string in the statement. (e.g. `{"AWS": "arn:aws:iam::123456789012:root"}` or `"*"`)
+- `Statement` is the list of normalized statements. See [Normalized Policy JSON](#normalized-policy-json) for details.
 
 #### Example of Name is "AmazonEC2FullAccess".
+
+Find policies that have the name "AmazonEC2FullAccess".
 
 ```console
 $ iam-policy-finder 'Name == "AmazonEC2FullAccess"'
@@ -46,6 +42,8 @@ time=2024-07-14T01:27:14.568+09:00 level=INFO msg=found policy=AmazonEC2FullAcce
 ```
 
 #### Example of Document matches `"lambda:GetFunction"` and does not match `"lambda:ListTags"`.
+
+`Document` is the policy document JSON string. You can use `Document.matches`, `Document.contains`, or other string functions to find any policy that matches the condition.
 
 ```cel
 // expr.cel
@@ -61,19 +59,30 @@ time=2024-07-14T01:25:33.029+09:00 level=INFO msg=found policy=SecretsManagerRea
 
 `Statement` is a list of normalized statement objects. So, you can use `Statement.exists` to find any statement that matches the condition.
 
-Statement.Action contains `"s3:*"` and Statement.Effect is `"Allow"`.
+For example, find policies that `Statement.Action` includes `"s3:*"` and `Statement.Effect` is `"Allow"`.
 
 ```cel
 Statement.exists(s, s.Action.exists(a, a == "s3:*") && s.Effect == "Allow")
 ```
 
-Principal contains AWS account `"123456789012"`.
+`Principal` specifies "AWS account 123456789012".
 
 ```cel
 Statement.exists(s, s.Principal != "*" && s.Principal["AWS"].exists(p, p == "123456789012"))
 ```
 
-#### Example of Normalized Policy JSON
+#### Normalized Policy JSON
+
+iam-policy-finder normalizes the policy document JSON.
+
+`Action` and `Resource` are always normalized to a list of strings.
+
+- `Statement[].Sid` is the statement ID. (e.g. `"Sid-1"`)
+- `Statement[].Effect` is the effect of the statement. (e.g. `"Allow"`, `"Deny"`)
+- `Statement[].Action` is the list of actions in the statement. (e.g. `["s3:GetObject", "s3:PutObject"]`) If the action is `"s3:*"`, it is normalized to `["s3:*"]`.
+- `Statement[].Resource` is the list of resources in the statement. (e.g. `["arn:aws:s3:::my-bucket/*"]`, Not a string) If the resource is `"*"`, it is normalized to `["*"]`.
+- `Statement[].Condition` is the condition object in the statement. (e.g. `{"StringEquals": {"s3:x-amz-acl": "public-read"}}`)
+- `Statement[].Principal` is the principal object or a string in the statement. (e.g. `{"AWS": "arn:aws:iam::123456789012:root"}` or `"*"`)
 
 ```json
 {
