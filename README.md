@@ -4,6 +4,8 @@ iam-policy-finder is a tool to find AWS IAM policies that matches the given cond
 
 This is useful when you want to find policies that have specific permissions.
 
+iam-policy-finder calls [GetAccountAuthorizationDetails](https://docs.aws.amazon.com/IAM/latest/APIReference/API_GetAccountAuthorizationDetails.html) API to get the account authorization details and evaluates the policy document with the given condition. The evaluation is done by [CEL](https://cel.dev/).
+
 ## Usage
 
 ```
@@ -27,12 +29,14 @@ iam-policy-finder finds policies that matches the given condition. The condition
 
 The first argument is a CEL expression string or file name.
 
+In the expression, you can use the following variables:
+
 - `Name` is the name of the policy.
 - `Document` is the policy document JSON string.
 - `Version` is the policy version. (e.g. `"2012-10-17"`)
 - `Statement` is the list of normalized statements. See [Normalized Policy JSON](#normalized-policy-json) for details.
 
-#### Example of Name is "AmazonEC2FullAccess".
+#### Example of matching the policy name.
 
 Find policies that have the name "AmazonEC2FullAccess".
 
@@ -41,7 +45,7 @@ $ iam-policy-finder 'Name == "AmazonEC2FullAccess"'
 time=2024-07-14T01:27:14.568+09:00 level=INFO msg=found policy=AmazonEC2FullAccess versions="[v5 v4 v3 v2 v1]" attached=2
 ```
 
-#### Example of Document matches `"lambda:GetFunction"` and does not match `"lambda:ListTags"`.
+#### Example of policy document matching as a string.
 
 `Document` is the policy document JSON string. You can use `Document.matches`, `Document.contains`, or other string functions to find any policy that matches the condition.
 
@@ -55,7 +59,7 @@ $ iam-policy-finder expr.cel
 time=2024-07-14T01:25:33.029+09:00 level=INFO msg=found policy=SecretsManagerReadWrite versions="[v5 v4 v3 v2 v1]" attached=2
 ```
 
-#### Example of finding by normalized policy.
+#### Example of finding policies that match the statement.
 
 `Statement` is a list of normalized statement objects. So, you can use `Statement.exists` to find any statement that matches the condition.
 
@@ -71,7 +75,7 @@ Statement.exists(s, s.Action.exists(a, a == "s3:*") && s.Effect == "Allow")
 Statement.exists(s, s.Principal != "*" && s.Principal["AWS"].exists(p, p == "123456789012"))
 ```
 
-#### Normalized Policy JSON
+#### Normalized policy JSON
 
 iam-policy-finder normalizes the policy document JSON.
 
@@ -146,6 +150,8 @@ Dumps the found policy document JSON to STDOUT.
 #### `--skip-evaluation-error`
 
 Skips the evaluation error. If the evaluation error occurs, the policy is not matched.
+
+By default, the evaluation error stops the process.
 
 #### `--debug`
 
