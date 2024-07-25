@@ -10,13 +10,15 @@ import (
 
 var fuzzyPolicyJSON = `{
 	"Version": "2012-10-17",
-	"Statement": [{
+	"Statement": [
+	{
 		"Sid": "1",
 		"Effect": "Allow",
 		"Action": "s3:ListBucket",
 		"Principal": "*",
 		"Resource": "arn:aws:s3:::example_bucket"
-	}, {
+	},
+	{
 		"Sid": "2",
 		"Effect": "Deny",
 		"Action": ["s3:DeleteObject", "s3:PutObject"],
@@ -29,7 +31,25 @@ var fuzzyPolicyJSON = `{
 				"aws:PrincipalArn": "arn:aws:iam::444455556666:user/user-name"
 			}
 		}
-	}]
+	},
+	{
+		"Sid": "GuardDutySecurityGroupManagementPolicy",
+		"Effect": "Allow",
+		"Action": [
+			"ec2:AuthorizeSecurityGroupIngress",
+			"ec2:AuthorizeSecurityGroupEgress",
+			"ec2:RevokeSecurityGroupIngress",
+			"ec2:RevokeSecurityGroupEgress",
+			"ec2:DeleteSecurityGroup"
+		],
+		"Resource": "arn:aws:ec2:*:*:security-group/*",
+		"Condition": {
+			"Null": {
+				"aws:ResourceTag/GuardDutyManaged": false
+			}
+		}
+	}
+	]
 }`
 
 func newNormalizedPolicy(fn func([]string) []string) finder.Policy {
@@ -57,6 +77,20 @@ func newNormalizedPolicy(fn func([]string) []string) finder.Policy {
 				"Condition": map[string]map[string][]string{
 					"ArnNotEquals": {
 						"aws:PrincipalArn": {"arn:aws:iam::444455556666:user/user-name"},
+					},
+				},
+				"NotAction":    []string{},
+				"NotPrincipal": map[string][]string{},
+			},
+			{
+				"Sid":       "GuardDutySecurityGroupManagementPolicy",
+				"Effect":    "Allow",
+				"Action":    fn([]string{"ec2:AuthorizeSecurityGroupIngress", "ec2:AuthorizeSecurityGroupEgress", "ec2:RevokeSecurityGroupIngress", "ec2:RevokeSecurityGroupEgress", "ec2:DeleteSecurityGroup"}),
+				"Resource":  []string{"arn:aws:ec2:*:*:security-group/*"},
+				"Principal": map[string][]string{},
+				"Condition": map[string]map[string][]string{
+					"Null": {
+						"aws:ResourceTag/GuardDutyManaged": {"false"},
 					},
 				},
 				"NotAction":    []string{},
