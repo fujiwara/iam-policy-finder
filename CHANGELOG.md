@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.0.4](https://github.com/fujiwara/iam-policy-finder/compare/v0.0.3...v0.0.4) - 2024-07-25
+- Enables to normalize json.RawMessage more. by @fujiwara in https://github.com/fujiwara/iam-policy-finder/pull/6
+
 ## [v0.0.3](https://github.com/fujiwara/iam-policy-finder/compare/v0.0.2...v0.0.3) - 2024-07-18
 - Add --lc flag. by @fujiwara in https://github.com/fujiwara/iam-policy-finder/pull/5
 
