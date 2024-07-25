@@ -45,6 +45,17 @@ func normalizeRawMessage(raw json.RawMessage) ([]string, error) {
 		if err := json.Unmarshal(raw, &slice); err == nil {
 			return slice, nil
 		}
+	case 't': // true
+		return []string{"true"}, nil
+	case 'f': // false
+		return []string{"false"}, nil
+	case 'n': // null
+		return []string{"null"}, nil
+	default: // number
+		var number float64
+		if err := json.Unmarshal(raw, &number); err == nil {
+			return []string{fmt.Sprintf("%v", number)}, nil
+		}
 	}
 	return nil, fmt.Errorf("cannot unmarshal raw message %s", string(raw))
 }
