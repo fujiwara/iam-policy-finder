@@ -3,7 +3,7 @@ module github.com/fujiwara/iam-policy-finder
 go 1.21
 
 require (
-	github.com/alecthomas/kong v0.9.0
+	github.com/alecthomas/kong v1.2.1
 	github.com/aws/aws-sdk-go-v2 v1.30.3
 	github.com/aws/aws-sdk-go-v2/config v1.27.26
 	github.com/aws/aws-sdk-go-v2/service/iam v1.34.3
